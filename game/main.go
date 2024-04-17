@@ -18,10 +18,13 @@ const (
 )
 
 var (
-	grassSprite rl.Texture2D // grass sprite
-	grassSrc    rl.Rectangle // grass source rectangle
-	TheWorld    = world.NewWorld(worldWidth, worldHeight)
-	pl          *player.PlayerType
+	grassSprite  rl.Texture2D // grass sprite
+	grassSrc     rl.Rectangle // grass source rectangle
+	playerSprite rl.Texture2D // player sprite
+	playerSrc    rl.Rectangle // player source rectangle
+
+	TheWorld = world.NewWorld(worldWidth, worldHeight)
+	pl       *player.PlayerType
 )
 
 func init() {
@@ -33,6 +36,7 @@ func init() {
 	playerStartPosY := float32(screenHeight / 2)
 	pl = player.NewPlayer(playerStartPosX, playerStartPosY)
 	grassSprite = rl.LoadTexture("assets/tilesets/Grass.png")
+	playerSprite = rl.LoadTexture("assets/characters/lund_idle_walk.png")
 }
 func renderWorld() {
 	// Here we only render the world
@@ -83,7 +87,9 @@ func renderWorld() {
 func renderPlayer() {
 	// Here we only render the player
 	playerPosX, playerPosY := pl.GetPosition()
-	rl.DrawCircle(int32(playerPosX), int32(playerPosY), 10, rl.Red)
+	playerSrc = rl.NewRectangle(20, 78, 52, 52)
+	rl.DrawTexturePro(playerSprite, playerSrc, rl.NewRectangle(playerPosX, playerPosY, 62, 62), rl.NewVector2(0, 0), 0, rl.White)
+	// rl.DrawCircle(int32(playerPosX), int32(playerPosY), 10, rl.Red)
 }
 
 func render() {
@@ -101,14 +107,15 @@ func update() {
 
 func input() {
 	// This is where we handle user input
+	speed := pl.GetSpeed()
 	if rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD) {
-		// Move the player to the right
+		pl.Move(speed, 0)
 	} else if rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA) {
-		// Move the player to the left
+		pl.Move(-speed, 0)
 	} else if rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW) {
-		// Move the player up
+		pl.Move(0, -speed)
 	} else if rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS) {
-		// Move the player down
+		pl.Move(0, speed)
 	}
 }
 
