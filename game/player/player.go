@@ -1,14 +1,23 @@
 package player
 
 type PlayerType struct {
-	PosX  float32
-	PosY  float32
-	Speed float32
+	PosX      float32
+	PosY      float32
+	Speed     float32
+	RenderPos int
 }
 
-func NewPlayer(posX, posY float32) *PlayerType {
-	player := &PlayerType{PosX: posX, PosY: posY, Speed: 2}
+func NewPlayer(posX, posY, speed float32) PlayerType {
+	player := PlayerType{PosX: posX, PosY: posY, Speed: speed, RenderPos: 0}
 	return player
+}
+
+func (p *PlayerType) GetRenderPos() int {
+	return p.RenderPos
+}
+
+func (p *PlayerType) SetRenderPos(newCycle int) {
+	p.RenderPos = newCycle
 }
 
 func (p *PlayerType) GetSpeed() float32 {

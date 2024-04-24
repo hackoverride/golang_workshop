@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"game/player"
 	"game/world"
+	"log"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -15,6 +17,8 @@ const (
 	worldWidth  int = 20
 	worldHeight int = 12
 	worldMargin int = 2
+
+	playerAnimationSpeed float64 = 0.1
 )
 
 var (
@@ -23,73 +27,106 @@ var (
 	playerSprite rl.Texture2D // player sprite
 	playerSrc    rl.Rectangle // player source rectangle
 
+	// Walking animation frames
+	playerSourcePositions = []rl.Rectangle{
+		rl.NewRectangle(22, 78, 24, 50), // Starting position
+		rl.NewRectangle(86, 78, 24, 50),
+		rl.NewRectangle(150, 78, 24, 50),
+		rl.NewRectangle(215, 78, 24, 50),
+		rl.NewRectangle(278, 78, 24, 50),
+		rl.NewRectangle(342, 78, 24, 50),
+		rl.NewRectangle(407, 78, 24, 50),
+		rl.NewRectangle(471, 78, 24, 50),
+	}
+	lastAnimationTime float64 = 0
+
 	TheWorld = world.NewWorld(worldWidth, worldHeight)
-	pl       *player.PlayerType
+	pl       player.PlayerType
 )
 
 func init() {
 	rl.InitWindow(screenWidth, screenHeight, "Capgemini - Go Workshop")
 	rl.SetTargetFPS(60)
 
-	// Find the middle of the screen
-	playerStartPosX := float32(screenWidth / 2)
-	playerStartPosY := float32(screenHeight / 2)
-	pl = player.NewPlayer(playerStartPosX, playerStartPosY)
-	grassSprite = rl.LoadTexture("assets/tilesets/Grass.png")
-	playerSprite = rl.LoadTexture("assets/characters/lund_idle_walk.png")
+	pl = player.NewPlayer(float32(screenWidth/2), float32(screenHeight/2), 2)
+	pl2 := player.NewPlayer(float32(screenWidth/2), float32(screenHeight/2), 1)
+	fmt.Println(pl.GetSpeed(), pl2.GetSpeed())
+
+	grassSprite = loadTexture("assets/tilesets/Grass.png")
+	playerSprite = loadTexture("assets/characters/lund_idle_walk.png")
 }
+
+func loadTexture(filePath string) rl.Texture2D {
+	texture := rl.LoadTexture(filePath)
+	if texture.ID == 0 {
+		log.Fatalf("Failed to load texture: %s", filePath)
+	}
+	return texture
+}
+
 func renderWorld() {
-	// Here we only render the world
-
-	for x := range TheWorld.Tiles {
-		for y := range TheWorld.Tiles[x] {
-			// We only want to render the tiles that are visible on the screen
-
-			if TheWorld.Tiles[x][y].Grass {
-				// destination rectangle
-				currentPlacementX := (x + worldMargin) * tileSize
-				currentPlacementY := (y + worldMargin) * tileSize
-				destination := rl.NewRectangle(float32(currentPlacementX), float32(currentPlacementY), float32(tileSize), float32(tileSize))
-				// source rectangle
-				grassSrc = rl.NewRectangle(16, 16, 16, 16) // This is the grass tile
-				if x == 0 {
-					// This is the left edge of the world
-					grassSrc = rl.NewRectangle(0, 16, 16, 16)
-				} else if x == worldWidth-1 {
-					grassSrc = rl.NewRectangle(32, 16, 16, 16)
-				} else if y == 0 {
-					grassSrc = rl.NewRectangle(16, 0, 16, 16)
-				} else if y == worldHeight-1 {
-					grassSrc = rl.NewRectangle(16, 32, 16, 16)
-				}
-
-				switch {
-				case x == 0 && y == 0:
-					grassSrc = rl.NewRectangle(0, 0, 16, 16)
-				case x == 0 && y == worldHeight-1:
-					grassSrc = rl.NewRectangle(0, 32, 16, 16)
-				case x == worldWidth-1 && y == 0:
-					grassSrc = rl.NewRectangle(32, 0, 16, 16)
-				case x == worldWidth-1 && y == worldHeight-1:
-					grassSrc = rl.NewRectangle(32, 32, 16, 16)
-				}
-
-				grassTint := rl.NewColor(uint8(255), uint8(255), uint8(255), 255)
-				if (x%2) == 0 && (y%2) == 0 {
-					grassTint = rl.NewColor(uint8(240), uint8(240), uint8(255), 255)
-				}
-				rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{X: 0, Y: 0}, 0, grassTint)
+	for x, column := range TheWorld.Tiles {
+		for y, tile := range column {
+			if tile.Grass {
+				renderTile(x, y, &tile)
 			}
 		}
 	}
 }
 
+func renderTile(x, y int, tile *world.Tile) {
+	destX, destY := (x+worldMargin)*tileSize, (y+worldMargin)*tileSize
+	destination := rl.NewRectangle(float32(destX), float32(destY), float32(tileSize), float32(tileSize))
+	grassSrc := selectTileSource(x, y)
+
+	grassTint := rl.NewColor(255, 255, 255, 255)
+	if (x+y)%2 == 0 {
+		grassTint = rl.NewColor(240, 240, 255, 255)
+	}
+
+	rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{}, 0, grassTint)
+}
+
+func selectTileSource(x, y int) rl.Rectangle {
+	switch {
+	case x == 0 && y == 0:
+		return rl.NewRectangle(0, 0, 16, 16)
+	case x == worldWidth-1 && y == worldHeight-1:
+		return rl.NewRectangle(32, 32, 16, 16)
+	case x == 0 && y == worldHeight-1:
+		return rl.NewRectangle(0, 32, 16, 16)
+	case x == worldWidth-1 && y == 0:
+		return rl.NewRectangle(32, 0, 16, 16)
+	case x == 0:
+		return rl.NewRectangle(0, 16, 16, 16)
+	case x == worldWidth-1:
+		return rl.NewRectangle(32, 16, 16, 16)
+	case y == 0:
+		return rl.NewRectangle(16, 0, 16, 16)
+	case y == worldHeight-1:
+		return rl.NewRectangle(16, 32, 16, 16)
+	default:
+		return rl.NewRectangle(16, 16, 16, 16)
+	}
+}
+
 func renderPlayer() {
-	// Here we only render the player
+	currentTime := rl.GetTime()
 	playerPosX, playerPosY := pl.GetPosition()
-	playerSrc = rl.NewRectangle(20, 78, 52, 52)
-	rl.DrawTexturePro(playerSprite, playerSrc, rl.NewRectangle(playerPosX, playerPosY, 62, 62), rl.NewVector2(0, 0), 0, rl.White)
-	// rl.DrawCircle(int32(playerPosX), int32(playerPosY), 10, rl.Red)
+	playerRenderCycle := pl.GetRenderPos()
+
+	// Update animation based on time, not every frame
+	if currentTime-lastAnimationTime > playerAnimationSpeed {
+		lastAnimationTime = currentTime
+		playerRenderCycle = (playerRenderCycle + 1) % len(playerSourcePositions)
+		pl.SetRenderPos(playerRenderCycle) // Assuming there's a method to set the render cycle
+	}
+
+	// Player sprite source is based upon which render cycle we are in
+	playerSrc = playerSourcePositions[playerRenderCycle]
+
+	// Render the player
+	rl.DrawTexturePro(playerSprite, playerSrc, rl.NewRectangle(playerPosX, playerPosY, 50, 72), rl.NewVector2(0, 0), 0, rl.White)
 }
 
 func render() {
