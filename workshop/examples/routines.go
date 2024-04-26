@@ -10,6 +10,7 @@ func ExampleRoutine() {
 	start := time.Now()
 
 	go func() {
+		fmt.Println("Staring routine")
 		time.Sleep(2 * time.Second)
 		fmt.Println("Routine finished after", time.Since(start))
 	}()

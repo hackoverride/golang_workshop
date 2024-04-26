@@ -16,7 +16,7 @@ func AdvancedChannelsWithGoRoutines() {
 	allFoodies = make([]Foodie, 0)
 	fmt.Println("Advanced Channels starting up")
 	start := time.Now()
-	// mu := sync.Mutex{}
+	mu := sync.Mutex{}
 
 	foodieChannel := make(chan Foodie, 100)
 	var wg sync.WaitGroup
@@ -26,27 +26,27 @@ func AdvancedChannelsWithGoRoutines() {
 	// Then we call wg.Done() in each goroutine when it finishes.
 
 	/* The code underneath is the code without the Mutex */
-	go func() {
-		for f := range foodieChannel {
-			allFoodies = append(allFoodies, f)
-		}
-	}()
-	go func() {
-		for f := range foodieChannel {
-			allFoodies = append(allFoodies, f)
-		}
-	}()
+	// go func() {
+	// 	for f := range foodieChannel {
+	// 		allFoodies = append(allFoodies, f)
+	// 	}
+	// }()
+	// go func() {
+	// 	for f := range foodieChannel {
+	// 		allFoodies = append(allFoodies, f)
+	// 	}
+	// }()
 
 	// This code will handle the data concurrently because we are using goroutines with mutexes.
-	// for i := 0; i < workers; i++ {
-	// 	go func() {
-	// 		for f := range foodieChannel {
-	// 			mu.Lock()
-	// 			allFoodies = append(allFoodies, f)
-	// 			mu.Unlock()
-	// 		}
-	// 	}()
-	// }
+	for i := 0; i < workers; i++ {
+		go func() {
+			for f := range foodieChannel {
+				mu.Lock()
+				allFoodies = append(allFoodies, f)
+				mu.Unlock()
+			}
+		}()
+	}
 	// The code above will work with the Mutex
 
 	csvFile, err := os.Open("onlinefoods.csv")
@@ -104,10 +104,8 @@ func AdvancedChannelsWithGoRoutines() {
 }
 
 func parseFoodie(line []string) (Foodie, error) {
-	age, err := strconv.Atoi(line[0])
-	if err != nil {
-		return Foodie{}, err
-	}
+	age, _ := strconv.Atoi(line[0])
+
 	familySize, err := strconv.Atoi(line[6])
 	if err != nil {
 		return Foodie{}, err

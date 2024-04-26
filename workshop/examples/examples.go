@@ -9,8 +9,12 @@ import (
 )
 
 type Employee struct {
-	Name string
+	Name string `json:"name"`
 	Age  int
+}
+
+func (e *Employee) SetName(name string) {
+	e.Name = name
 }
 
 func (e Employee) ToString() string {
@@ -59,11 +63,12 @@ func MapsAndStructs() {
 	myMap := map[string]int{"one": 1, "two": 2, "three": 3}
 	fmt.Println("Map:", myMap)
 
-	allEmployees := []Employee{
+	allEmployees := [...]Employee{
 		{Name: "Jørgen", Age: 29},
 		{Name: "Henning", Age: 39},
 		{Name: "Thor", Age: 42},
 	}
+
 	fmt.Println("Employees:", allEmployees)
 	tools.Pause()
 }
@@ -102,6 +107,7 @@ func Pointers() {
 
 	var myPointer *int = new(int)
 	*myPointer = 42
+	// newInt := new(int)
 
 	fmt.Println("Pointer Value:", *myPointer)
 	fmt.Println("Pointer Address:", myPointer)
@@ -115,8 +121,8 @@ func Pointers() {
 }
 
 // BasicFunction demonstrates a simple function with parameters and a return value.
-func BasicFunction(name string, age int) string {
-	return fmt.Sprintf("%s is %d years old.", name, age)
+func BasicFunction(name string, age int) (string, error) {
+	return fmt.Sprintf("%s is %d years old.", name, age), nil
 }
 
 // HighOrderFunction demonstrates a function that takes another function as a parameter.
@@ -141,7 +147,7 @@ func Closure() func() int {
 // ExampleFunctions calls and demonstrates all the functions defined above.
 func ExampleFunctions() {
 	// Using BasicFunction
-	result := BasicFunction("Alice", 30)
+	result, _ := BasicFunction("Alice", 30)
 	fmt.Println(result)
 	tools.Pause()
 
@@ -160,11 +166,11 @@ func ExampleFunctions() {
 
 // Example function calls all demonstration functions.
 func Example() {
-	BasicDataTypes()
-	ArraysAndSlices()
-	MapsAndStructs()
-	ComplexStructs()
-	Pointers()
+	// BasicDataTypes()
+	// ArraysAndSlices()
+	// MapsAndStructs()
+	// ComplexStructs()
+	// Pointers()
 	ExampleFunctions()
 }
 

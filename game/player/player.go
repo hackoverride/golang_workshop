@@ -5,11 +5,33 @@ type PlayerType struct {
 	PosY      float32
 	Speed     float32
 	RenderPos int
+	IsMoving  bool
+	FaceRight bool
 }
 
 func NewPlayer(posX, posY, speed float32) PlayerType {
 	player := PlayerType{PosX: posX, PosY: posY, Speed: speed, RenderPos: 0}
 	return player
+}
+
+func (p *PlayerType) IsPlayerMoving() bool {
+	return p.IsMoving
+}
+
+func (p *PlayerType) SetPlayerFaceRight(faceRight bool) {
+	p.FaceRight = faceRight
+}
+
+func (p *PlayerType) IsPlayerFaceRight() bool {
+	return p.FaceRight
+}
+
+func (p *PlayerType) SetPlayerMoving(moving bool) {
+	if p.IsMoving == moving {
+		return
+	}
+	p.IsMoving = moving
+	p.RenderPos = 0
 }
 
 func (p *PlayerType) GetRenderPos() int {

@@ -13,8 +13,6 @@ func main() {
 	// examples.Example()
 	// examples.ExampleRoutine()
 
-	// Regular AdvancedChannels handle 17_081 lines of data in the onlinefoods.csv file
-	// normally around 1.65 seconds.
 	// channels.AdvancedChannels()
 	// channels.AdvancedChannelsWithGoRoutines()
 	shines.Shines()
