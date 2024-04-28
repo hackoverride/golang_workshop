@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"game/item"
 	"game/player"
 	"game/world"
 	"log"
@@ -20,40 +21,102 @@ const (
 
 	playerAnimationSpeed     float64 = 0.1
 	playerIdleAnimationSpeed float64 = 0.2
+	playerSpellSpeed         float64 = 0.02
 )
 
 var (
+	debugMode       bool = false
+	flameLashSprite rl.Texture2D
+	flameRenderPos  int            = 0
+	flameSrc        []rl.Rectangle = []rl.Rectangle{
+		rl.NewRectangle(25, 25, 50, 50),
+		rl.NewRectangle(125, 25, 50, 50),
+		rl.NewRectangle(225, 25, 50, 50),
+		rl.NewRectangle(325, 25, 50, 50),
+		rl.NewRectangle(425, 25, 50, 50),
+		rl.NewRectangle(525, 25, 50, 50),
+		rl.NewRectangle(625, 25, 50, 50),
+		rl.NewRectangle(25, 125, 50, 50),
+		rl.NewRectangle(125, 125, 50, 50),
+		rl.NewRectangle(225, 125, 50, 50),
+		rl.NewRectangle(325, 125, 50, 50),
+		rl.NewRectangle(425, 125, 50, 50),
+		rl.NewRectangle(525, 125, 50, 50),
+		rl.NewRectangle(625, 125, 50, 50),
+		rl.NewRectangle(25, 225, 50, 50),
+		rl.NewRectangle(125, 225, 50, 50),
+		rl.NewRectangle(225, 225, 50, 50),
+		rl.NewRectangle(325, 225, 50, 50),
+		rl.NewRectangle(425, 225, 50, 50),
+		rl.NewRectangle(525, 225, 50, 50),
+		rl.NewRectangle(625, 225, 50, 50),
+		rl.NewRectangle(25, 325, 50, 50),
+		rl.NewRectangle(125, 325, 50, 50),
+		rl.NewRectangle(225, 325, 50, 50),
+		rl.NewRectangle(325, 325, 50, 50),
+		rl.NewRectangle(425, 325, 50, 50),
+		rl.NewRectangle(525, 325, 50, 50),
+		rl.NewRectangle(625, 325, 50, 50),
+		rl.NewRectangle(25, 425, 50, 50),
+		rl.NewRectangle(125, 425, 50, 50),
+		rl.NewRectangle(225, 425, 50, 50),
+		rl.NewRectangle(325, 425, 50, 50),
+		rl.NewRectangle(425, 425, 50, 50),
+		rl.NewRectangle(525, 425, 50, 50),
+		rl.NewRectangle(625, 425, 50, 50),
+		rl.NewRectangle(25, 525, 50, 50),
+		rl.NewRectangle(125, 525, 50, 50),
+		rl.NewRectangle(225, 525, 50, 50),
+		rl.NewRectangle(325, 525, 50, 50),
+		rl.NewRectangle(425, 525, 50, 50),
+		rl.NewRectangle(525, 525, 50, 50),
+		rl.NewRectangle(625, 525, 50, 50),
+		rl.NewRectangle(25, 625, 50, 50),
+		rl.NewRectangle(125, 625, 50, 50),
+		rl.NewRectangle(225, 625, 50, 50),
+		rl.NewRectangle(325, 625, 50, 50),
+		rl.NewRectangle(425, 625, 50, 50),
+		rl.NewRectangle(525, 625, 50, 50),
+		rl.NewRectangle(625, 625, 50, 50),
+	}
+
 	grassSprite      rl.Texture2D // grass sprite
 	grassSrc         rl.Rectangle // grass source rectangle
 	playerSprite     rl.Texture2D // player sprite
 	playerSpriteLeft rl.Texture2D
 	playerSrc        rl.Rectangle // player source rectangle
 
+	itemSprite rl.Texture2D
+
 	// Walking animation frames
 	playerSourcePositions = []rl.Rectangle{
-		rl.NewRectangle(22, 78, 24, 50), // Starting position
-		rl.NewRectangle(86, 78, 24, 50),
-		rl.NewRectangle(150, 78, 24, 50),
-		rl.NewRectangle(215, 78, 24, 50),
-		rl.NewRectangle(278, 78, 24, 50),
-		rl.NewRectangle(342, 78, 24, 50),
-		rl.NewRectangle(407, 78, 24, 50),
-		rl.NewRectangle(471, 78, 24, 50),
+		rl.NewRectangle(22, 78, 20, 36), // Starting position
+		rl.NewRectangle(86, 78, 20, 36),
+		rl.NewRectangle(150, 78, 20, 36),
+		rl.NewRectangle(215, 78, 20, 36),
+		rl.NewRectangle(278, 78, 20, 36),
+		rl.NewRectangle(342, 78, 20, 36),
+		rl.NewRectangle(407, 78, 20, 36),
+		rl.NewRectangle(471, 78, 20, 36),
 	}
 	playerIdlePositions = []rl.Rectangle{
-		rl.NewRectangle(22, 14, 24, 50), // Starting position
-		rl.NewRectangle(86, 14, 24, 50),
-		rl.NewRectangle(150, 14, 24, 50),
-		rl.NewRectangle(215, 14, 24, 50),
-		rl.NewRectangle(278, 14, 24, 50),
-		rl.NewRectangle(342, 14, 24, 50),
-		rl.NewRectangle(407, 14, 24, 50),
-		rl.NewRectangle(471, 14, 24, 50),
+		rl.NewRectangle(22, 14, 20, 36), // Starting position
+		rl.NewRectangle(86, 14, 20, 36),
+		rl.NewRectangle(150, 14, 20, 36),
+		rl.NewRectangle(215, 14, 20, 36),
+		rl.NewRectangle(278, 14, 20, 36),
+		rl.NewRectangle(342, 14, 20, 36),
+		rl.NewRectangle(407, 14, 20, 36),
+		rl.NewRectangle(471, 14, 20, 36),
 	}
-	lastAnimationTime float64 = 0
+	lastAnimationTime  float64 = 0
+	lastSpellAnimation float64 = 0
 
 	TheWorld = world.NewWorld(worldWidth, worldHeight)
 	pl       player.PlayerType
+	items    []item.ItemType = make([]item.ItemType, 0)
+
+	lockedChestSource = rl.NewRectangle(92, 31, 40, 35)
 )
 
 func init() {
@@ -67,6 +130,9 @@ func init() {
 	grassSprite = loadTexture("assets/tilesets/Grass.png")
 	playerSprite = loadTexture("assets/characters/lund_right.png")
 	playerSpriteLeft = loadTexture("assets/characters/lund_left.png")
+
+	itemSprite = rl.LoadTexture("assets/objects/tx_props.png")
+	flameLashSprite = rl.LoadTexture("assets/effects/flamelash.png")
 }
 
 func loadTexture(filePath string) rl.Texture2D {
@@ -91,13 +157,21 @@ func renderTile(x, y int, tile *world.Tile) {
 	destX, destY := (x+worldMargin)*tileSize, (y+worldMargin)*tileSize
 	destination := rl.NewRectangle(float32(destX), float32(destY), float32(tileSize), float32(tileSize))
 	grassSrc = selectTileSource(x, y)
-
-	grassTint := rl.NewColor(255, 255, 255, 255)
-	if (x+y)%2 == 0 {
-		grassTint = rl.NewColor(240, 240, 255, 255)
+	if tile.Grass {
+		grassTint := rl.NewColor(255, 255, 255, 255)
+		if (x+y)%2 == 0 {
+			grassTint = rl.NewColor(240, 240, 255, 255)
+		}
+		rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{}, 0, grassTint)
 	}
-
-	rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{}, 0, grassTint)
+	if debugMode {
+		rl.DrawRectangleLines(int32(destX), int32(destY), int32(tileSize), int32(tileSize), rl.White)
+		/* mark tile */
+		rl.DrawCircle(int32(destX), int32(destY), 2, rl.Black)
+		rl.DrawCircle(int32(destX+tileSize), int32(destY), 2, rl.Black)
+		rl.DrawCircle(int32(destX), int32(destY+tileSize), 2, rl.Black)
+		rl.DrawCircle(int32(destX+tileSize), int32(destY+tileSize), 2, rl.Black)
+	}
 }
 
 func selectTileSource(x, y int) rl.Rectangle {
@@ -126,6 +200,8 @@ func selectTileSource(x, y int) rl.Rectangle {
 func renderPlayer() {
 	currentTime := rl.GetTime()
 	playerPosX, playerPosY := pl.GetPosition()
+	playerWidth := pl.GetPlayerWidth()
+	playerHeight := pl.GetPlayerHeight()
 	playerRenderCycle := pl.GetRenderPos()
 	triggerSpeed := playerAnimationSpeed
 	if !pl.IsMoving {
@@ -162,7 +238,65 @@ func renderPlayer() {
 	if !pl.IsPlayerFaceRight() {
 		spriteTarget = playerSpriteLeft
 	}
-	rl.DrawTexturePro(spriteTarget, playerSrc, rl.NewRectangle(playerPosX, playerPosY, 50, 72), rl.NewVector2(0, 0), 0, rl.White)
+	rl.DrawTexturePro(spriteTarget, playerSrc, rl.NewRectangle(playerPosX, (playerPosY-playerHeight), playerWidth, playerHeight), rl.NewVector2(0, 0), 0, rl.White)
+	if debugMode {
+		rl.DrawRectangleLines(int32(playerPosX), int32((playerPosY - playerHeight)), int32(playerWidth), int32(playerHeight), rl.Red)
+
+		/* mark player */
+		rl.DrawCircle(int32(playerPosX), int32((playerPosY - playerHeight)), 2, rl.Blue)
+		rl.DrawCircle(int32(playerPosX+playerWidth), int32((playerPosY - playerHeight)), 2, rl.Blue)
+		rl.DrawCircle(int32(playerPosX), int32(playerPosY), 2, rl.Blue)
+		rl.DrawCircle(int32(playerPosX+playerWidth), int32(playerPosY), 2, rl.Blue)
+	}
+}
+
+func renderSpells() {
+	currentTime := rl.GetTime()
+	if currentTime-lastSpellAnimation > playerSpellSpeed {
+		lastSpellAnimation = currentTime
+		flameRenderPos = (flameRenderPos + 1) % len(flameSrc)
+	}
+	if pl.IsPlayerUsingSpell() {
+		// Render the spell
+		playerPosX, playerPosY := pl.GetPosition()
+		playerHeight := pl.GetPlayerHeight()
+		playerWidth := pl.GetPlayerWidth()
+
+		spellWidth := float32(150)
+		spellHeight := float32(150)
+
+		spellPosX := playerPosX - (spellWidth / 2) + (playerWidth / 2)
+		spellPosY := playerPosY - (spellHeight / 2) + (playerHeight / 2)
+
+		/* render spell effect */
+		opacity := rl.NewColor(255, 255, 255, 200)
+		rl.DrawTexturePro(flameLashSprite, flameSrc[flameRenderPos], rl.NewRectangle(spellPosX, spellPosY, spellWidth, spellHeight), rl.NewVector2(0, 0), 0, opacity)
+	}
+}
+
+func renderItems() {
+	if len(items) == 0 {
+		return
+	}
+	for _, item := range items {
+		positionX, positionY := item.GetPosition()
+		source := item.GetSpriteSource()
+		item_width, item_height := 40, 30 // "chest_locked"
+
+		if item.Name == "chest_opened" {
+			item_width, item_height = 40, 40 // "chest_opened"
+		}
+		positionY -= float32(item_height)
+		rl.DrawTexturePro(itemSprite, source, rl.NewRectangle(positionX, positionY, float32(item_width), float32(item_height)), rl.NewVector2(0, 0), 0, rl.White)
+		if debugMode {
+			rl.DrawRectangleLines(int32(positionX), int32(positionY), int32(item_width), int32(item_height), rl.Green)
+			/* mark item */
+			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+float32(item_width)), int32(positionY), 2, rl.Red)
+			rl.DrawCircle(int32(positionX), int32(positionY+float32(item_height)), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+float32(item_width)), int32(positionY+float32(item_height)), 2, rl.Red)
+		}
+	}
 }
 
 func render() {
@@ -170,7 +304,9 @@ func render() {
 	rl.ClearBackground(rl.SkyBlue)
 	// The order it is rendered is important
 	renderWorld()
+	renderItems()
 	renderPlayer()
+	renderSpells()
 	rl.EndDrawing()
 }
 
@@ -181,18 +317,24 @@ func update() {
 func input() {
 	// This is where we handle user input
 	speed := pl.GetSpeed()
+	if rl.IsKeyPressed(rl.KeyP) {
+		debugMode = !debugMode
+	}
 	if rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD) {
 		pl.Move(speed, 0)
 		pl.SetPlayerMoving(true)
 		pl.SetPlayerFaceRight(true)
-	} else if rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA) {
+	}
+	if rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA) {
 		pl.Move(-speed, 0)
 		pl.SetPlayerMoving(true)
 		pl.SetPlayerFaceRight(false)
-	} else if rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW) {
+	}
+	if rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW) {
 		pl.Move(0, -speed)
 		pl.SetPlayerMoving(true)
-	} else if rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS) {
+	}
+	if rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS) {
 		pl.Move(0, speed)
 		pl.SetPlayerMoving(true)
 	}
@@ -203,10 +345,62 @@ func input() {
 		rl.IsKeyReleased(rl.KeyDown) || rl.IsKeyReleased(rl.KeyS) {
 		pl.SetPlayerMoving(false)
 	}
+
+	/* Use items */
+	if rl.IsKeyPressed(rl.KeyE) {
+		positionX, positionY := pl.GetPosition()
+
+		alreadyTriggeredOne := false
+		for i, it := range items {
+			itemX, itemY := it.GetPosition()
+			// Check if player is on top of an item, the player is 50x72 pixels
+			// and the item is 30x30 pixels
+			if positionX >= itemX-50 && positionX <= itemX+32 && positionY >= itemY-55 && positionY <= itemY+32 && !alreadyTriggeredOne {
+				fmt.Printf("Player is on top of item %d\n", i)
+				// if the item is a chest_locked, remove it and add a chest_opened
+				if it.Name == "chest_locked" {
+					items = append(items[:i], items[i+1:]...)
+					items = append(items, item.NewItem("chest_opened", rl.NewRectangle(93, 74, 40, 55), itemX, itemY))
+				} else {
+					items = append(items[:i], items[i+1:]...)
+				}
+				alreadyTriggeredOne = true
+
+				// Remove the item from the world
+			}
+		}
+	}
+
+	/* Use Spell */
+	if rl.IsKeyPressed(rl.KeyQ) {
+		fmt.Println("Player is using spell")
+		pl.SetPlayerUsingSpell(true)
+		flameRenderPos = 0
+	}
+	if rl.IsKeyReleased(rl.KeyQ) {
+		pl.SetPlayerUsingSpell(false)
+	}
+
+	/* Place items */
+
+	if rl.IsKeyPressed(rl.KeySpace) {
+		// Add an item to the world
+		positionX, positionY := pl.GetPosition()
+		items = append(items, item.NewItem("chest_locked", lockedChestSource, positionX, positionY))
+	}
 }
 
 func main() {
+
+	rl.InitAudioDevice()
+
+	music := rl.LoadMusicStream("intro.mp3")
+
+	rl.PlayMusicStream(music)
+	rl.SetMusicVolume(music, 0.1)
+
 	for !rl.WindowShouldClose() {
+		rl.UpdateMusicStream(music) // Update music buffer with new stream data
 		input()
 		update()
 		render()

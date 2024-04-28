@@ -1,17 +1,49 @@
 package player
 
 type PlayerType struct {
-	PosX      float32
-	PosY      float32
-	Speed     float32
-	RenderPos int
-	IsMoving  bool
-	FaceRight bool
+	PosX         float32
+	PosY         float32
+	Width        float32
+	Height       float32
+	Speed        float32
+	RenderPos    int
+	IsMoving     bool
+	IsUsingSpell bool
+	FaceRight    bool
 }
 
 func NewPlayer(posX, posY, speed float32) PlayerType {
-	player := PlayerType{PosX: posX, PosY: posY, Speed: speed, RenderPos: 0}
+	player := PlayerType{
+		PosX:         posX,
+		PosY:         posY,
+		Speed:        speed,
+		RenderPos:    0,
+		Width:        40,
+		Height:       60,
+		IsMoving:     false,
+		IsUsingSpell: false,
+		FaceRight:    true,
+	}
 	return player
+}
+
+func (p *PlayerType) SetPlayerUsingSpell(usingSpell bool) {
+	if p.IsUsingSpell == usingSpell {
+		return
+	}
+	p.IsUsingSpell = usingSpell
+}
+
+func (p *PlayerType) GetPlayerWidth() float32 {
+	return p.Width
+}
+
+func (p *PlayerType) GetPlayerHeight() float32 {
+	return p.Height
+}
+
+func (p *PlayerType) IsPlayerUsingSpell() bool {
+	return p.IsUsingSpell
 }
 
 func (p *PlayerType) IsPlayerMoving() bool {
