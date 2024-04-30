@@ -15,70 +15,19 @@ const (
 	screenHeight int32 = 800
 	screenWidth  int32 = 1200
 
-	worldWidth  int = 20
-	worldHeight int = 12
-	worldMargin int = 2
+	worldWidth  int = 21
+	worldHeight int = 15
 
 	playerAnimationSpeed     float64 = 0.1
 	playerIdleAnimationSpeed float64 = 0.2
 	playerSpellSpeed         float64 = 0.02
+	flameAnimationSpeed      float64 = 0.04
 )
 
 var (
-	debugMode       bool = false
-	flameLashSprite rl.Texture2D
-	flameRenderPos  int            = 0
-	flameSrc        []rl.Rectangle = []rl.Rectangle{
-		rl.NewRectangle(25, 25, 50, 50),
-		rl.NewRectangle(125, 25, 50, 50),
-		rl.NewRectangle(225, 25, 50, 50),
-		rl.NewRectangle(325, 25, 50, 50),
-		rl.NewRectangle(425, 25, 50, 50),
-		rl.NewRectangle(525, 25, 50, 50),
-		rl.NewRectangle(625, 25, 50, 50),
-		rl.NewRectangle(25, 125, 50, 50),
-		rl.NewRectangle(125, 125, 50, 50),
-		rl.NewRectangle(225, 125, 50, 50),
-		rl.NewRectangle(325, 125, 50, 50),
-		rl.NewRectangle(425, 125, 50, 50),
-		rl.NewRectangle(525, 125, 50, 50),
-		rl.NewRectangle(625, 125, 50, 50),
-		rl.NewRectangle(25, 225, 50, 50),
-		rl.NewRectangle(125, 225, 50, 50),
-		rl.NewRectangle(225, 225, 50, 50),
-		rl.NewRectangle(325, 225, 50, 50),
-		rl.NewRectangle(425, 225, 50, 50),
-		rl.NewRectangle(525, 225, 50, 50),
-		rl.NewRectangle(625, 225, 50, 50),
-		rl.NewRectangle(25, 325, 50, 50),
-		rl.NewRectangle(125, 325, 50, 50),
-		rl.NewRectangle(225, 325, 50, 50),
-		rl.NewRectangle(325, 325, 50, 50),
-		rl.NewRectangle(425, 325, 50, 50),
-		rl.NewRectangle(525, 325, 50, 50),
-		rl.NewRectangle(625, 325, 50, 50),
-		rl.NewRectangle(25, 425, 50, 50),
-		rl.NewRectangle(125, 425, 50, 50),
-		rl.NewRectangle(225, 425, 50, 50),
-		rl.NewRectangle(325, 425, 50, 50),
-		rl.NewRectangle(425, 425, 50, 50),
-		rl.NewRectangle(525, 425, 50, 50),
-		rl.NewRectangle(625, 425, 50, 50),
-		rl.NewRectangle(25, 525, 50, 50),
-		rl.NewRectangle(125, 525, 50, 50),
-		rl.NewRectangle(225, 525, 50, 50),
-		rl.NewRectangle(325, 525, 50, 50),
-		rl.NewRectangle(425, 525, 50, 50),
-		rl.NewRectangle(525, 525, 50, 50),
-		rl.NewRectangle(625, 525, 50, 50),
-		rl.NewRectangle(25, 625, 50, 50),
-		rl.NewRectangle(125, 625, 50, 50),
-		rl.NewRectangle(225, 625, 50, 50),
-		rl.NewRectangle(325, 625, 50, 50),
-		rl.NewRectangle(425, 625, 50, 50),
-		rl.NewRectangle(525, 625, 50, 50),
-		rl.NewRectangle(625, 625, 50, 50),
-	}
+	debugMode bool = true
+
+	camera rl.Camera2D
 
 	grassSprite      rl.Texture2D // grass sprite
 	grassSrc         rl.Rectangle // grass source rectangle
@@ -86,7 +35,8 @@ var (
 	playerSpriteLeft rl.Texture2D
 	playerSrc        rl.Rectangle // player source rectangle
 
-	itemSprite rl.Texture2D
+	itemSprite        rl.Texture2D
+	FireSpriteTexture rl.Texture2D
 
 	// Walking animation frames
 	playerSourcePositions = []rl.Rectangle{
@@ -111,10 +61,12 @@ var (
 	}
 	lastAnimationTime  float64 = 0
 	lastSpellAnimation float64 = 0
+	lastFlameAnimation float64 = 0
 
 	TheWorld = world.NewWorld(worldWidth, worldHeight)
 	pl       player.PlayerType
-	items    []item.ItemType = make([]item.ItemType, 0)
+	items    []item.ItemType  = make([]item.ItemType, 0)
+	flames   []item.FireLight = make([]item.FireLight, 0)
 
 	lockedChestSource = rl.NewRectangle(92, 31, 40, 35)
 )
@@ -124,15 +76,16 @@ func init() {
 	rl.SetTargetFPS(60)
 
 	pl = player.NewPlayer(float32(screenWidth/2), float32(screenHeight/2), 2)
-	pl2 := player.NewPlayer(float32(screenWidth/2), float32(screenHeight/2), 1)
-	fmt.Println(pl.GetSpeed(), pl2.GetSpeed())
+	camera = rl.NewCamera2D(rl.NewVector2(float32(screenWidth/2), float32(screenHeight/2)),
+		rl.NewVector2(float32(pl.PosX-(pl.Width/2)), float32(pl.PosY-(pl.Height/2))), 0, 1)
 
 	grassSprite = loadTexture("assets/tilesets/Grass.png")
 	playerSprite = loadTexture("assets/characters/lund_right.png")
 	playerSpriteLeft = loadTexture("assets/characters/lund_left.png")
 
 	itemSprite = rl.LoadTexture("assets/objects/tx_props.png")
-	flameLashSprite = rl.LoadTexture("assets/effects/flamelash.png")
+
+	FireSpriteTexture = rl.LoadTexture("assets/effects/fire.png")
 }
 
 func loadTexture(filePath string) rl.Texture2D {
@@ -154,23 +107,41 @@ func renderWorld() {
 }
 
 func renderTile(x, y int, tile *world.Tile) {
-	destX, destY := (x+worldMargin)*tileSize, (y+worldMargin)*tileSize
-	destination := rl.NewRectangle(float32(destX), float32(destY), float32(tileSize), float32(tileSize))
+	destX, destY := (x)*tileSize, (y)*tileSize
+	destination := rl.NewRectangle(float32(destX), float32(destY-tileSize), float32(tileSize), float32(tileSize))
 	grassSrc = selectTileSource(x, y)
+	playerPosX, playerPosY := pl.GetPosition()
+	playerWidth := pl.GetPlayerWidth()
+	playerHeight := pl.GetPlayerHeight()
+
+	playerPosY -= playerHeight
+
+	includesPlayerX := playerPosY+playerHeight >= float32(destY-tileSize) && playerPosY <= float32(destY)
+	includesPlayerY := playerPosX+playerWidth >= float32(destX) && playerPosX <= float32(destX+tileSize)
+
 	if tile.Grass {
 		grassTint := rl.NewColor(255, 255, 255, 255)
 		if (x+y)%2 == 0 {
 			grassTint = rl.NewColor(240, 240, 255, 255)
 		}
+		if includesPlayerX && debugMode {
+			grassTint = rl.NewColor(200, 200, 200, 255)
+		}
+		if includesPlayerY && debugMode {
+			grassTint = rl.NewColor(200, 200, 200, 255)
+		}
+		if debugMode && includesPlayerX && includesPlayerY {
+			grassTint = rl.NewColor(150, 150, 150, 255)
+		}
 		rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{}, 0, grassTint)
 	}
 	if debugMode {
-		rl.DrawRectangleLines(int32(destX), int32(destY), int32(tileSize), int32(tileSize), rl.White)
+		rl.DrawRectangleLines(int32(destX), int32(destY-tileSize), int32(tileSize), int32(tileSize), rl.White)
 		/* mark tile */
+		rl.DrawCircle(int32(destX), int32(destY-tileSize), 2, rl.Black)
+		rl.DrawCircle(int32(destX+tileSize), int32(destY-tileSize), 2, rl.Black)
 		rl.DrawCircle(int32(destX), int32(destY), 2, rl.Black)
 		rl.DrawCircle(int32(destX+tileSize), int32(destY), 2, rl.Black)
-		rl.DrawCircle(int32(destX), int32(destY+tileSize), 2, rl.Black)
-		rl.DrawCircle(int32(destX+tileSize), int32(destY+tileSize), 2, rl.Black)
 	}
 }
 
@@ -254,30 +225,30 @@ func renderSpells() {
 	currentTime := rl.GetTime()
 	if currentTime-lastSpellAnimation > playerSpellSpeed {
 		lastSpellAnimation = currentTime
-		flameRenderPos = (flameRenderPos + 1) % len(flameSrc)
+		// render spell
 	}
-	if pl.IsPlayerUsingSpell() {
-		// Render the spell
-		playerPosX, playerPosY := pl.GetPosition()
-		playerHeight := pl.GetPlayerHeight()
-		playerWidth := pl.GetPlayerWidth()
+	// if pl.IsPlayerUsingSpell() {
+	// 	// Render the spell
+	// 	playerPosX, playerPosY := pl.GetPosition()
+	// 	playerHeight := pl.GetPlayerHeight()
+	// 	playerWidth := pl.GetPlayerWidth()
 
-		spellWidth := float32(150)
-		spellHeight := float32(150)
+	// 	spellWidth := float32(150)
+	// 	spellHeight := float32(150)
 
-		spellPosX := playerPosX - (spellWidth / 2) + (playerWidth / 2)
-		spellPosY := playerPosY - (spellHeight / 2) + (playerHeight / 2)
+	// 	spellPosX := playerPosX - (spellWidth / 2) + (playerWidth / 2)
+	// 	spellPosY := playerPosY - (spellHeight / 2) + (playerHeight / 2)
 
-		/* render spell effect */
-		opacity := rl.NewColor(255, 255, 255, 200)
-		rl.DrawTexturePro(flameLashSprite, flameSrc[flameRenderPos], rl.NewRectangle(spellPosX, spellPosY, spellWidth, spellHeight), rl.NewVector2(0, 0), 0, opacity)
-	}
+	// 	/* render spell effect */
+	// 	opacity := rl.NewColor(255, 255, 255, 200)
+	// 	rl.DrawTexturePro(flameLashSprite, flameSrc[flameRenderPos], rl.NewRectangle(spellPosX, spellPosY, spellWidth, spellHeight), rl.NewVector2(0, 0), 0, opacity)
+	// }
 }
 
 func renderItems() {
-	if len(items) == 0 {
-		return
-	}
+	// if len(items) == 0 {
+	// 	return
+	// }
 	for _, item := range items {
 		positionX, positionY := item.GetPosition()
 		source := item.GetSpriteSource()
@@ -297,21 +268,54 @@ func renderItems() {
 			rl.DrawCircle(int32(positionX+float32(item_width)), int32(positionY+float32(item_height)), 2, rl.Red)
 		}
 	}
+	for _, flame := range flames {
+		positionX, positionY := flame.GetPosition()
+		texture := FireSpriteTexture
+		renderPos := flame.GetRenderPos()
+
+		source := item.FireSpriteSource[renderPos]
+		width := flame.GetFireWidth()
+		height := flame.GetFireHeight()
+
+		rl.DrawTexturePro(texture, source, rl.NewRectangle(positionX, positionY-height, float32(width), float32(height)), rl.NewVector2(0, 0), 0, rl.White)
+		if debugMode {
+			rl.DrawRectangleLines(int32(positionX), int32(positionY-height), int32(width), int32(height), rl.Yellow)
+			/* mark item */
+			rl.DrawCircle(int32(positionX), int32(positionY-height), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+float32(width)), int32(positionY-height), 2, rl.Red)
+			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+float32(width)), int32(positionY), 2, rl.Red)
+		}
+	}
 }
 
 func render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.SkyBlue)
 	// The order it is rendered is important
+	rl.BeginMode2D(camera)
 	renderWorld()
 	renderItems()
 	renderPlayer()
 	renderSpells()
+	rl.EndMode2D()
 	rl.EndDrawing()
 }
 
 func update() {
+	currentTime := rl.GetTime()
 	// This is where we do our game logic
+	if currentTime-lastFlameAnimation > flameAnimationSpeed {
+		for i := range flames {
+			flames[i].SetRenderPos((flames[i].GetRenderPos() + 1) % len(item.FireSpriteSource))
+		}
+		lastFlameAnimation = currentTime
+	}
+
+	// Update the camera
+	camera.Target = rl.NewVector2(float32(pl.PosX), float32(pl.PosY))
+	camera.Offset = rl.NewVector2(float32(screenWidth/2), float32(screenHeight/2))
+
 }
 
 func input() {
@@ -371,12 +375,18 @@ func input() {
 		}
 	}
 
+	/* Create Fire */
+	if rl.IsKeyPressed(rl.KeyF) {
+		positionX, positionY := pl.GetPosition()
+		flames = append(flames, item.NewFireLight(positionX, positionY))
+	}
+
 	/* Use Spell */
 	if rl.IsKeyPressed(rl.KeyQ) {
 		fmt.Println("Player is using spell")
 		pl.SetPlayerUsingSpell(true)
-		flameRenderPos = 0
 	}
+
 	if rl.IsKeyReleased(rl.KeyQ) {
 		pl.SetPlayerUsingSpell(false)
 	}
@@ -397,7 +407,7 @@ func main() {
 	music := rl.LoadMusicStream("intro.mp3")
 
 	rl.PlayMusicStream(music)
-	rl.SetMusicVolume(music, 0.1)
+	rl.SetMusicVolume(music, 0.2)
 
 	for !rl.WindowShouldClose() {
 		rl.UpdateMusicStream(music) // Update music buffer with new stream data
