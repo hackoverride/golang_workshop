@@ -15,12 +15,22 @@ type ItemType struct {
 	SpriteSource rl.Rectangle
 	PosX         float32
 	PosY         float32
+	Height       float32
+	Width        float32
 }
 
-func NewItem(name string, spriteSource rl.Rectangle, posX, posY float32) ItemType {
+func NewItem(name string, spriteSource rl.Rectangle, posX, posY float32, width, height float32) ItemType {
 	fmt.Println("Creating new item")
-	item := ItemType{Name: name, SpriteSource: spriteSource, PosX: posX, PosY: posY}
+	item := ItemType{Name: name, SpriteSource: spriteSource, PosX: posX, PosY: posY, Height: height, Width: width}
 	return item
+}
+
+func (i *ItemType) GetHeight() float32 {
+	return i.Height
+}
+
+func (i *ItemType) GetWidth() float32 {
+	return i.Width
 }
 
 func (i *ItemType) GetPosition() (float32, float32) {

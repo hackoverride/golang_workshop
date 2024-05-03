@@ -1,7 +1,14 @@
 package item
 
 import (
+	"fmt"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
+)
+
+const (
+	MaxHeight = 100
+	MaxWidth  = 60
 )
 
 var (
@@ -20,6 +27,8 @@ type Tree struct {
 }
 
 func NewTree(posX, posY float32) Tree {
+	fmt.Println("Creating new tree")
+	fmt.Println("Tree position: ", posX, posY)
 	tree := Tree{Name: "Tree", Quantity: 10, PosX: posX, PosY: posY, Height: 10, Width: 20, Health: 100}
 	return tree
 }
@@ -48,7 +57,7 @@ func (t *Tree) GetPosition() (float32, float32) {
 	return t.PosX, t.PosY
 }
 
-func (t *Tree) GetTreeHealth() int {
+func (t *Tree) GetHealth() int {
 	return t.Health
 }
 
@@ -56,10 +65,18 @@ func (t *Tree) GetTreeGrowth() int {
 	return t.Growth
 }
 
-func (t *Tree) GrowTree() {
+func (t *Tree) SetFullyGrown() {
+	t.Growth = 100
+	t.Height = MaxHeight
+	t.Width = MaxWidth
+}
+
+func (t *Tree) Grow() {
 	if t.Growth >= 100 {
 		return
 	}
+	fmt.Println("Growing tree")
+	fmt.Println("Tree growth: ", t.Growth)
 
 	t.Growth += 1
 	if t.Growth < 25 {
@@ -69,30 +86,29 @@ func (t *Tree) GrowTree() {
 		t.Height = 15
 		t.Width = 20
 	} else if t.Growth < 50 {
-		t.Height = 20
+		t.Height = 25
 		t.Width = 20
 	} else if t.Growth < 60 {
-		t.Height = 30
+		t.Height = 35
 		t.Width = 30
 	} else if t.Growth < 75 {
 		t.Height = 50
 		t.Width = 40
 	} else {
-		t.Height = 80
-		t.Width = 50
+		t.Height = 100
+		t.Width = 60
 	}
 }
 
-func (t *Tree) HitTree(dmg int) int {
+func (t *Tree) Hit(dmg int) {
 	t.Health -= dmg
-	return t.Health
 }
 
 func init() {
 	TreeSpriteSource = []rl.Rectangle{
 		rl.NewRectangle(83, 21, 10, 8),
 		rl.NewRectangle(16, 48, 16, 15),
-		rl.NewRectangle(0, 0, 15, 30),
-		rl.NewRectangle(19, 0, 25, 30),
+		rl.NewRectangle(0, 0, 15, 28),
+		rl.NewRectangle(19, 0, 25, 31),
 	}
 }

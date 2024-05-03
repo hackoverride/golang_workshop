@@ -6,6 +6,7 @@ import (
 	"game/player"
 	"game/world"
 	"log"
+	"sort"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -22,23 +23,30 @@ const (
 	playerIdleAnimationSpeed float64 = 0.2
 	playerSpellSpeed         float64 = 0.02
 	flameAnimationSpeed      float64 = 0.04
-	treeGrowthSpeed          float64 = 0.5
 )
+
+type RenderableItem struct {
+	Texture     rl.Texture2D
+	Source      rl.Rectangle
+	Width       float32
+	Height      float32
+	Destination rl.Rectangle
+	Color       rl.Color
+}
 
 var (
 	debugMode bool = true
 
 	camera rl.Camera2D
 
-	grassSprite      rl.Texture2D // grass sprite
-	grassSrc         rl.Rectangle // grass source rectangle
-	playerSprite     rl.Texture2D // player sprite
-	playerSpriteLeft rl.Texture2D
-	playerSrc        rl.Rectangle // player source rectangle
-
+	grassSprite       rl.Texture2D
+	playerSprite      rl.Texture2D
+	playerSpriteLeft  rl.Texture2D
 	itemSprite        rl.Texture2D
 	FireSpriteTexture rl.Texture2D
 	TreeSpriteTexture rl.Texture2D
+	grassSrc          rl.Rectangle
+	playerSrc         rl.Rectangle
 
 	// Walking animation frames
 	playerSourcePositions = []rl.Rectangle{
@@ -64,19 +72,18 @@ var (
 	lastAnimationTime  float64 = 0
 	lastSpellAnimation float64 = 0
 	lastFlameAnimation float64 = 0
-	lastTreeGrowth     float64 = 0
 
 	TheWorld = world.NewWorld(worldWidth, worldHeight)
 	pl       player.PlayerType
 	items    []item.ItemType  = make([]item.ItemType, 0)
 	flames   []item.FireLight = make([]item.FireLight, 0)
-	trees    []item.Tree      = make([]item.Tree, 0)
 
 	lockedChestSource = rl.NewRectangle(92, 31, 40, 35)
+	openChestSource   = rl.NewRectangle(93, 74, 40, 55)
 )
 
 func init() {
-	rl.InitWindow(screenWidth, screenHeight, "Capgemini - Go Workshop")
+	rl.InitWindow(screenWidth, screenHeight, "Game")
 	rl.SetTargetFPS(60)
 
 	pl = player.NewPlayer(float32(screenWidth/2), float32(screenHeight/2), 2)
@@ -86,10 +93,9 @@ func init() {
 	grassSprite = loadTexture("assets/tilesets/Grass.png")
 	playerSprite = loadTexture("assets/characters/lund_right.png")
 	playerSpriteLeft = loadTexture("assets/characters/lund_left.png")
-
-	itemSprite = rl.LoadTexture("assets/objects/tx_props.png")
-	TreeSpriteTexture = rl.LoadTexture("assets/objects/grass_biom.png")
-	FireSpriteTexture = rl.LoadTexture("assets/effects/fire.png")
+	itemSprite = loadTexture("assets/objects/tx_props.png")
+	TreeSpriteTexture = loadTexture("assets/objects/grass_biom.png")
+	FireSpriteTexture = loadTexture("assets/effects/fire.png")
 }
 
 func loadTexture(filePath string) rl.Texture2D {
@@ -139,13 +145,9 @@ func renderTile(x, y int, tile *world.Tile) {
 		}
 		rl.DrawTexturePro(grassSprite, grassSrc, destination, rl.Vector2{}, 0, grassTint)
 	}
+
 	if debugMode {
 		rl.DrawRectangleLines(int32(destX), int32(destY-tileSize), int32(tileSize), int32(tileSize), rl.White)
-		/* mark tile */
-		rl.DrawCircle(int32(destX), int32(destY-tileSize), 2, rl.Black)
-		rl.DrawCircle(int32(destX+tileSize), int32(destY-tileSize), 2, rl.Black)
-		rl.DrawCircle(int32(destX), int32(destY), 2, rl.Black)
-		rl.DrawCircle(int32(destX+tileSize), int32(destY), 2, rl.Black)
 	}
 }
 
@@ -172,7 +174,35 @@ func selectTileSource(x, y int) rl.Rectangle {
 	}
 }
 
-func renderPlayer() {
+func renderLayers() {
+
+	renderQueue := make([]RenderableItem, 0)
+
+	renderQueue = renderItems(renderQueue)
+	renderQueue = renderPlayer(renderQueue)
+	renderQueue = renderSpells(renderQueue)
+
+	// Sort the render queue by Y position
+	sort.Slice(renderQueue, func(i, j int) bool {
+		return renderQueue[i].Destination.Y < renderQueue[j].Destination.Y
+	})
+
+	for _, renderItem := range renderQueue {
+		renderItem.Destination.Y -= renderItem.Height
+		rl.DrawTexturePro(renderItem.Texture, renderItem.Source, renderItem.Destination, rl.Vector2{}, 0, renderItem.Color)
+
+		if debugMode {
+			rl.DrawRectangleLines(int32(renderItem.Destination.X), int32(renderItem.Destination.Y), int32(renderItem.Width), int32(renderItem.Height), rl.Black)
+			/* mark item */
+			rl.DrawCircle(int32(renderItem.Destination.X), int32(renderItem.Destination.Y), 2, rl.Green)
+			rl.DrawCircle(int32(renderItem.Destination.X+renderItem.Width), int32(renderItem.Destination.Y), 2, rl.Green)
+			rl.DrawCircle(int32(renderItem.Destination.X), int32(renderItem.Destination.Y+renderItem.Height), 2, rl.Green)
+			rl.DrawCircle(int32(renderItem.Destination.X+renderItem.Width), int32(renderItem.Destination.Y+renderItem.Height), 2, rl.Green)
+		}
+	}
+}
+
+func renderPlayer(renderQueue []RenderableItem) []RenderableItem {
 	currentTime := rl.GetTime()
 	playerPosX, playerPosY := pl.GetPosition()
 	playerWidth := pl.GetPlayerWidth()
@@ -213,65 +243,46 @@ func renderPlayer() {
 	if !pl.IsPlayerFaceRight() {
 		spriteTarget = playerSpriteLeft
 	}
-	rl.DrawTexturePro(spriteTarget, playerSrc, rl.NewRectangle(playerPosX, (playerPosY-playerHeight), playerWidth, playerHeight), rl.NewVector2(0, 0), 0, rl.White)
-	if debugMode {
-		rl.DrawRectangleLines(int32(playerPosX), int32((playerPosY - playerHeight)), int32(playerWidth), int32(playerHeight), rl.Red)
+	renderQueue = append(renderQueue, RenderableItem{
+		Texture:     spriteTarget,
+		Source:      playerSrc,
+		Width:       float32(playerWidth),
+		Height:      float32(playerHeight),
+		Destination: rl.NewRectangle(playerPosX, playerPosY, float32(playerWidth), float32(playerHeight)),
+		Color:       rl.White,
+	})
 
-		/* mark player */
-		rl.DrawCircle(int32(playerPosX), int32((playerPosY - playerHeight)), 2, rl.Blue)
-		rl.DrawCircle(int32(playerPosX+playerWidth), int32((playerPosY - playerHeight)), 2, rl.Blue)
-		rl.DrawCircle(int32(playerPosX), int32(playerPosY), 2, rl.Blue)
-		rl.DrawCircle(int32(playerPosX+playerWidth), int32(playerPosY), 2, rl.Blue)
-	}
+	return renderQueue
 }
 
-func renderSpells() {
+func renderSpells(renderQueue []RenderableItem) []RenderableItem {
 	currentTime := rl.GetTime()
 	if currentTime-lastSpellAnimation > playerSpellSpeed {
 		lastSpellAnimation = currentTime
 		// render spell
 	}
-	// if pl.IsPlayerUsingSpell() {
-	// 	// Render the spell
-	// 	playerPosX, playerPosY := pl.GetPosition()
-	// 	playerHeight := pl.GetPlayerHeight()
-	// 	playerWidth := pl.GetPlayerWidth()
 
-	// 	spellWidth := float32(150)
-	// 	spellHeight := float32(150)
-
-	// 	spellPosX := playerPosX - (spellWidth / 2) + (playerWidth / 2)
-	// 	spellPosY := playerPosY - (spellHeight / 2) + (playerHeight / 2)
-
-	// 	/* render spell effect */
-	// 	opacity := rl.NewColor(255, 255, 255, 200)
-	// 	rl.DrawTexturePro(flameLashSprite, flameSrc[flameRenderPos], rl.NewRectangle(spellPosX, spellPosY, spellWidth, spellHeight), rl.NewVector2(0, 0), 0, opacity)
-	// }
+	return renderQueue
 }
 
-func renderItems() {
-	// if len(items) == 0 {
-	// 	return
-	// }
+func renderItems(renderQueue []RenderableItem) []RenderableItem {
+
 	for _, item := range items {
 		positionX, positionY := item.GetPosition()
 		source := item.GetSpriteSource()
-		item_width, item_height := 40, 30 // "chest_locked"
+		width := item.GetWidth()
+		height := item.GetHeight()
 
-		if item.Name == "chest_opened" {
-			item_width, item_height = 40, 40 // "chest_opened"
-		}
-		positionY -= float32(item_height)
-		rl.DrawTexturePro(itemSprite, source, rl.NewRectangle(positionX, positionY, float32(item_width), float32(item_height)), rl.NewVector2(0, 0), 0, rl.White)
-		if debugMode {
-			rl.DrawRectangleLines(int32(positionX), int32(positionY), int32(item_width), int32(item_height), rl.Green)
-			/* mark item */
-			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+float32(item_width)), int32(positionY), 2, rl.Red)
-			rl.DrawCircle(int32(positionX), int32(positionY+float32(item_height)), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+float32(item_width)), int32(positionY+float32(item_height)), 2, rl.Red)
-		}
+		renderQueue = append(renderQueue, RenderableItem{
+			Texture:     itemSprite,
+			Source:      source,
+			Width:       float32(width),
+			Height:      float32(height),
+			Destination: rl.NewRectangle(positionX, positionY, float32(width), float32(height)),
+			Color:       rl.White,
+		})
 	}
+
 	for _, flame := range flames {
 		positionX, positionY := flame.GetPosition()
 		texture := FireSpriteTexture
@@ -281,32 +292,50 @@ func renderItems() {
 		width := flame.GetFireWidth()
 		height := flame.GetFireHeight()
 
-		rl.DrawTexturePro(texture, source, rl.NewRectangle(positionX, positionY-height, float32(width), float32(height)), rl.NewVector2(0, 0), 0, rl.White)
-		if debugMode {
-			rl.DrawRectangleLines(int32(positionX), int32(positionY-height), int32(width), int32(height), rl.Yellow)
-			/* mark item */
-			rl.DrawCircle(int32(positionX), int32(positionY-height), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+float32(width)), int32(positionY-height), 2, rl.Red)
-			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+float32(width)), int32(positionY), 2, rl.Red)
-		}
+		renderQueue = append(renderQueue, RenderableItem{
+			Texture:     texture,
+			Source:      source,
+			Height:      height,
+			Width:       width,
+			Destination: rl.NewRectangle(positionX, positionY, float32(width), float32(height)),
+			Color:       rl.White,
+		})
 	}
+	trees := TheWorld.GetTrees()
+
 	for _, tree := range trees {
 		positionX, positionY := tree.GetPosition()
 		source := tree.GetTreeSprite()
 		width := tree.GetTreeWidth()
 		positionX -= width / 2
 		height := tree.GetTreeHeight()
-		rl.DrawTexturePro(TreeSpriteTexture, source, rl.NewRectangle(positionX, positionY-height, width, height), rl.NewVector2(0, 0), 0, rl.White)
-		if debugMode {
-			rl.DrawRectangleLines(int32(positionX), int32(positionY-height), int32(width), int32(height), rl.Purple)
-			/* mark item */
-			rl.DrawCircle(int32(positionX), int32(positionY-height), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+width), int32(positionY-height), 2, rl.Red)
-			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
-			rl.DrawCircle(int32(positionX+width), int32(positionY), 2, rl.Red)
+		color := rl.White
+		opacity := 255
+		health := tree.GetHealth()
+		switch {
+		case health == 100:
+			opacity = 255
+		case health < 100:
+			opacity = 200
+		case health < 75:
+			opacity = 150
+		case health < 25:
+			opacity = 100
 		}
+
+		color = rl.NewColor(255, 255, 255, uint8(opacity))
+
+		renderQueue = append(renderQueue, RenderableItem{
+			Texture:     TreeSpriteTexture,
+			Source:      source,
+			Height:      height,
+			Width:       width,
+			Destination: rl.NewRectangle(positionX, positionY, width, height),
+			Color:       color,
+		})
 	}
+
+	return renderQueue
 }
 
 func render() {
@@ -315,9 +344,7 @@ func render() {
 	// The order it is rendered is important
 	rl.BeginMode2D(camera)
 	renderWorld()
-	renderItems()
-	renderPlayer()
-	renderSpells()
+	renderLayers()
 	rl.EndMode2D()
 	rl.EndDrawing()
 }
@@ -332,12 +359,7 @@ func update() {
 		lastFlameAnimation = currentTime
 	}
 
-	if currentTime-lastTreeGrowth > treeGrowthSpeed {
-		for i := range trees {
-			trees[i].GrowTree()
-		}
-		lastTreeGrowth = currentTime
-	}
+	TheWorld.Update()
 	// Update the camera
 	camera.Target = rl.NewVector2(float32(pl.PosX), float32(pl.PosY))
 	camera.Offset = rl.NewVector2(float32(screenWidth/2), float32(screenHeight/2))
@@ -379,24 +401,46 @@ func input() {
 	/* Use items */
 	if rl.IsKeyPressed(rl.KeyE) {
 		positionX, positionY := pl.GetPosition()
+		playerHeight := pl.GetPlayerHeight()
+		playerWidth := pl.GetPlayerWidth()
 
 		alreadyTriggeredOne := false
 		for i, it := range items {
 			itemX, itemY := it.GetPosition()
-			// Check if player is on top of an item, the player is 50x72 pixels
-			// and the item is 30x30 pixels
-			if positionX >= itemX-50 && positionX <= itemX+32 && positionY >= itemY-55 && positionY <= itemY+32 && !alreadyTriggeredOne {
+			itenWidth := it.GetWidth()
+			itemHeight := it.GetHeight()
+
+			// Check if the player posX and posX + playerWidth is greater than the itemX and less than the itemX + itemWidth
+			overlappingX := positionX+playerWidth >= itemX && positionX <= itemX+itenWidth
+			// Check if the player posY and posY - playerHeight is less than the itemY and greater than the itemY - itemHeight
+			overlappingY := positionY >= itemY-itemHeight && positionY-playerHeight <= itemY
+			if overlappingX && overlappingY && !alreadyTriggeredOne {
 				fmt.Printf("Player is on top of item %d\n", i)
 				// if the item is a chest_locked, remove it and add a chest_opened
 				if it.Name == "chest_locked" {
 					items = append(items[:i], items[i+1:]...)
-					items = append(items, item.NewItem("chest_opened", rl.NewRectangle(93, 74, 40, 55), itemX, itemY))
+					items = append(items, item.NewItem("chest_opened", rl.NewRectangle(93, 74, 40, 55), itemX, itemY, 40, 50))
 				} else {
 					items = append(items[:i], items[i+1:]...)
 				}
 				alreadyTriggeredOne = true
 
 				// Remove the item from the world
+			}
+		}
+		allTrees := TheWorld.GetTrees()
+		for i, tree := range allTrees {
+			treeX, treeY := tree.GetPosition()
+			treeWidth := tree.GetTreeWidth()
+			treeHeight := tree.GetTreeHeight()
+
+			// Check if the player posX and posX + playerWidth is greater than the itemX and less than the itemX + itemWidth
+			overlappingX := positionX+playerWidth >= treeX && positionX <= treeX+treeWidth
+			// Check if the player posY and posY - playerHeight is less than the itemY and greater than the itemY - itemHeight
+			overlappingY := positionY >= treeY-treeHeight && positionY-playerHeight <= treeY
+			if overlappingX && overlappingY && !alreadyTriggeredOne {
+				fmt.Printf("Player is on top of tree %d\n", i)
+				TheWorld.HitTree(i, 10)
 			}
 		}
 	}
@@ -410,7 +454,7 @@ func input() {
 	/* Create Tree */
 	if rl.IsKeyPressed(rl.KeyT) {
 		positionX, positionY := pl.GetPosition()
-		trees = append(trees, item.NewTree(positionX, positionY))
+		TheWorld.AddTree(positionX, positionY)
 	}
 
 	/* Use Spell */
@@ -428,7 +472,7 @@ func input() {
 	if rl.IsKeyPressed(rl.KeySpace) {
 		// Add an item to the world
 		positionX, positionY := pl.GetPosition()
-		items = append(items, item.NewItem("chest_locked", lockedChestSource, positionX, positionY))
+		items = append(items, item.NewItem("chest_locked", lockedChestSource, positionX, positionY, 40, 30))
 	}
 }
 
@@ -439,7 +483,7 @@ func main() {
 	music := rl.LoadMusicStream("intro.mp3")
 
 	rl.PlayMusicStream(music)
-	rl.SetMusicVolume(music, 0.1)
+	rl.SetMusicVolume(music, 0.05)
 
 	for !rl.WindowShouldClose() {
 		rl.UpdateMusicStream(music) // Update music buffer with new stream data
