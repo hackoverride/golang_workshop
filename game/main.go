@@ -22,6 +22,7 @@ const (
 	playerIdleAnimationSpeed float64 = 0.2
 	playerSpellSpeed         float64 = 0.02
 	flameAnimationSpeed      float64 = 0.04
+	treeGrowthSpeed          float64 = 0.5
 )
 
 var (
@@ -37,6 +38,7 @@ var (
 
 	itemSprite        rl.Texture2D
 	FireSpriteTexture rl.Texture2D
+	TreeSpriteTexture rl.Texture2D
 
 	// Walking animation frames
 	playerSourcePositions = []rl.Rectangle{
@@ -62,11 +64,13 @@ var (
 	lastAnimationTime  float64 = 0
 	lastSpellAnimation float64 = 0
 	lastFlameAnimation float64 = 0
+	lastTreeGrowth     float64 = 0
 
 	TheWorld = world.NewWorld(worldWidth, worldHeight)
 	pl       player.PlayerType
 	items    []item.ItemType  = make([]item.ItemType, 0)
 	flames   []item.FireLight = make([]item.FireLight, 0)
+	trees    []item.Tree      = make([]item.Tree, 0)
 
 	lockedChestSource = rl.NewRectangle(92, 31, 40, 35)
 )
@@ -84,7 +88,7 @@ func init() {
 	playerSpriteLeft = loadTexture("assets/characters/lund_left.png")
 
 	itemSprite = rl.LoadTexture("assets/objects/tx_props.png")
-
+	TreeSpriteTexture = rl.LoadTexture("assets/objects/grass_biom.png")
 	FireSpriteTexture = rl.LoadTexture("assets/effects/fire.png")
 }
 
@@ -287,6 +291,22 @@ func renderItems() {
 			rl.DrawCircle(int32(positionX+float32(width)), int32(positionY), 2, rl.Red)
 		}
 	}
+	for _, tree := range trees {
+		positionX, positionY := tree.GetPosition()
+		source := tree.GetTreeSprite()
+		width := tree.GetTreeWidth()
+		positionX -= width / 2
+		height := tree.GetTreeHeight()
+		rl.DrawTexturePro(TreeSpriteTexture, source, rl.NewRectangle(positionX, positionY-height, width, height), rl.NewVector2(0, 0), 0, rl.White)
+		if debugMode {
+			rl.DrawRectangleLines(int32(positionX), int32(positionY-height), int32(width), int32(height), rl.Purple)
+			/* mark item */
+			rl.DrawCircle(int32(positionX), int32(positionY-height), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+width), int32(positionY-height), 2, rl.Red)
+			rl.DrawCircle(int32(positionX), int32(positionY), 2, rl.Red)
+			rl.DrawCircle(int32(positionX+width), int32(positionY), 2, rl.Red)
+		}
+	}
 }
 
 func render() {
@@ -312,6 +332,12 @@ func update() {
 		lastFlameAnimation = currentTime
 	}
 
+	if currentTime-lastTreeGrowth > treeGrowthSpeed {
+		for i := range trees {
+			trees[i].GrowTree()
+		}
+		lastTreeGrowth = currentTime
+	}
 	// Update the camera
 	camera.Target = rl.NewVector2(float32(pl.PosX), float32(pl.PosY))
 	camera.Offset = rl.NewVector2(float32(screenWidth/2), float32(screenHeight/2))
@@ -381,6 +407,12 @@ func input() {
 		flames = append(flames, item.NewFireLight(positionX, positionY))
 	}
 
+	/* Create Tree */
+	if rl.IsKeyPressed(rl.KeyT) {
+		positionX, positionY := pl.GetPosition()
+		trees = append(trees, item.NewTree(positionX, positionY))
+	}
+
 	/* Use Spell */
 	if rl.IsKeyPressed(rl.KeyQ) {
 		fmt.Println("Player is using spell")
@@ -407,7 +439,7 @@ func main() {
 	music := rl.LoadMusicStream("intro.mp3")
 
 	rl.PlayMusicStream(music)
-	rl.SetMusicVolume(music, 0.2)
+	rl.SetMusicVolume(music, 0.1)
 
 	for !rl.WindowShouldClose() {
 		rl.UpdateMusicStream(music) // Update music buffer with new stream data
